@@ -33,10 +33,23 @@ app.innerHTML = `
   <div id="toast" class="toast" role="status"></div>`;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
-function syncDesktopBrowserBounds() { const stage = $('browser-stage'); if (!window.ytManager || !stage) return; const r = stage.getBoundingClientRect(); window.ytManager.setBrowserBounds({x:r.x,y:r.y,width:r.width,height:r.height}); }
-window.addEventListener('resize', syncDesktopBrowserBounds);
-new MutationObserver(syncDesktopBrowserBounds).observe(document.documentElement,{childList:true,subtree:true,attributes:true});
-setTimeout(syncDesktopBrowserBounds,500);
+let lastBrowserBounds = '';
+function syncDesktopBrowserBounds() {
+  const stage = $('browser-stage');
+  if (!window.ytManager || !stage) return;
+  const r = stage.getBoundingClientRect();
+  const bounds = { x: r.x, y: r.y, width: r.width, height: r.height };
+  const signature = [bounds.x, bounds.y, bounds.width, bounds.height].join(':');
+  if (signature === lastBrowserBounds) return;
+  lastBrowserBounds = signature;
+  window.ytManager.setBrowserBounds(bounds);
+}
+window.addEventListener('resize', syncDesktopBrowserBounds, { passive: true });
+if (typeof ResizeObserver !== 'undefined') {
+  const stage = $('browser-stage');
+  new ResizeObserver(syncDesktopBrowserBounds).observe(stage);
+}
+requestAnimationFrame(syncDesktopBrowserBounds);
 const toast = (message: string) => { const el = $('toast'); el.textContent = message; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2800); };
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 
