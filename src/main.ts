@@ -7,6 +7,7 @@ const env = import.meta.env;
 // Supabase publishable key is designed for public client-side use. Environment variables override these defaults.
 const supabaseUrl = (env.VITE_SUPABASE_URL as string | undefined) ?? 'https://dwphicuwoeanxcwyihfj.supabase.co';
 const supabaseKey = (env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? 'sb_publishable_Ay3EVoUrBVBLCVIyevofVA_BOBpQ1w7';
+const youtubeApiKey = (env.VITE_YOUTUBE_API_KEY as string | undefined) ?? '';
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 type Account = { id: string; label: string; email: string | null; channel_url: string | null; created_at?: string };
@@ -18,7 +19,7 @@ let editingAccountId: string | null = null;
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <div class="shell">
-    <header class="topbar"><div class="brand"><span class="brand-icon">▶</span><span>YT <b>Manager</b></span></div><div class="top-actions"><span id="connection" class="status"><i></i> Local mode</span><button id="add" class="primary">＋ Tambah akun</button></div></header>
+    <header class="topbar"><div class="brand"><span class="brand-icon">▶</span><span>YT <b>Manager</b></span></div><div class="top-actions"><span id="connection" class="status"><i></i> Local mode</span><button id="stats" class="secondary">Statistik Channel</button><button id="add" class="primary">＋ Tambah akun</button></div></header>
     <main class="layout">
       <section class="browser-panel">
         <div class="browser-head"><div><span class="eyebrow">WORKSPACE</span><h1>YouTube</h1></div><span id="active-label" class="active-label">Belum ada akun dipilih</span></div>
@@ -132,6 +133,61 @@ async function deleteAccount(id: string) {
   await loadAccounts();
   toast('Akun berhasil dihapus.');
 }
+function showChannelStats() {
+  const account = accounts.find(a => a.id === activeId);
+  const stage = $('browser-stage');
+  if (!account) { toast('Pilih akun YouTube terlebih dahulu.'); return; }
+  stage.innerHTML = `
+    <section class="stats-view">
+      <div class="stats-heading"><div><span class="eyebrow">CHANNEL INSIGHTS</span><h2>Statistik Channel</h2><p>${escapeHtml(account.label)}</p></div><button id="refresh-stats" class="secondary">↻ Muat ulang</button></div>
+      <div id="stats-content" class="stats-content"><div class="stats-loading">Memuat statistik channel…</div></div>
+    </section>`;
+  $('refresh-stats').addEventListener('click', () => { void loadChannelStats(account); });
+  void loadChannelStats(account);
+}
+function formatCount(value: string | undefined) {
+  return value === undefined ? 'Disembunyikan' : Number(value).toLocaleString('id-ID');
+}
+async function loadChannelStats(account: Account) {
+  const content = $('stats-content');
+  if (!content) return;
+  if (!youtubeApiKey) {
+    content.innerHTML = '<div class="stats-empty"><h3>API YouTube belum dikonfigurasi</h3><p>Tambahkan <b>VITE_YOUTUBE_API_KEY</b> di Environment Variables Cloudflare Pages. Aktifkan YouTube Data API v3 di Google Cloud terlebih dahulu.</p></div>';
+    return;
+  }
+  if (!account.channel_url) {
+    content.innerHTML = '<div class="stats-empty"><h3>URL channel belum diisi</h3><p>Edit akun ini dan masukkan URL channel YouTube, misalnya https://www.youtube.com/@namachannel atau URL /channel/UC…</p></div>';
+    return;
+  }
+  const handle = account.channel_url.match(/youtube\\.com\\/@([^/?#]+)/i)?.[1];
+  const channelId = account.channel_url.match(/youtube\\.com\\/channel\\/(UC[\\w-]+)/i)?.[1];
+  if (!handle && !channelId) {
+    content.innerHTML = '<div class="stats-empty"><h3>URL channel belum didukung</h3><p>Gunakan URL handle seperti youtube.com/@namachannel atau URL channel seperti youtube.com/channel/UC…</p></div>';
+    return;
+  }
+  content.innerHTML = '<div class="stats-loading">Mengambil data dari YouTube…</div>';
+  try {
+    const params = new URLSearchParams({ part: 'snippet,statistics', key: youtubeApiKey });
+    if (handle) params.set('forHandle', handle);
+    if (channelId) params.set('id', channelId);
+    const response = await fetch('https://www.googleapis.com/youtube/v3/channels?' + params.toString());
+    const payload = await response.json();
+    if (!response.ok) throw new Error(payload?.error?.message ?? 'Permintaan YouTube API gagal.');
+    const channel = payload.items?.[0];
+    if (!channel) throw new Error('Channel tidak ditemukan. Periksa URL channel yang tersimpan.');
+    const stats = channel.statistics ?? {};
+    content.innerHTML = `
+      <div class="stats-channel"><img src="${escapeHtml(channel.snippet?.thumbnails?.default?.url ?? '')}" alt="" /><div><b>${escapeHtml(channel.snippet?.title ?? account.label)}</b><small>Data publik dari YouTube</small></div></div>
+      <div class="stats-grid">
+        <article class="stat-card"><span>Subscriber</span><strong>${formatCount(stats.subscriberCount)}</strong></article>
+        <article class="stat-card"><span>Total penayangan</span><strong>${formatCount(stats.viewCount)}</strong></article>
+        <article class="stat-card"><span>Jumlah video</span><strong>${formatCount(stats.videoCount)}</strong></article>
+      </div>
+      <p class="stats-footnote">Statistik publik channel. Jumlah subscriber dapat dibulatkan atau disembunyikan oleh pemilik channel. Data diperbarui saat tombol Muat ulang ditekan.</p>`;
+  } catch (error) {
+    content.innerHTML = '<div class="stats-empty"><h3>Gagal memuat statistik</h3><p>' + escapeHtml(error instanceof Error ? error.message : String(error)) + '</p><small>Pastikan API key aktif, YouTube Data API v3 diaktifkan, dan pembatasan API key mengizinkan domain aplikasi.</small></div>';
+  }
+}
 async function selectAccount(id: string) {
   activeId = id; render();
   const account = accounts.find(a => a.id === id);
@@ -144,6 +200,7 @@ async function selectAccount(id: string) {
     $('launch').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
   }
 }
+$('stats').addEventListener('click', showChannelStats);
 $('add').addEventListener('click', () => { resetAccountForm(); $<HTMLDialogElement>('account-dialog').showModal(); });
 $('close-account-dialog').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
 $('cancel-account').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
