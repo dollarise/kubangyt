@@ -104,9 +104,7 @@ function showSignIn(message = '') {
     button.disabled = true;
     message.textContent = 'Mengirim email untuk membuat password…';
     try {
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: (window.location.protocol === 'http:' || window.location.protocol === 'https:') ? window.location.origin : 'https://wadahyt.pages.dev'
-      });
+      const { error } = await supabase.auth.resetPasswordForEmail(email);
       message.textContent = error
         ? 'Gagal mengirim email: ' + error.message
         : 'Email pengaturan password dikirim ke ' + email + '. Buka email tersebut sekali untuk membuat password. Setelah itu login selalu memakai password.';
