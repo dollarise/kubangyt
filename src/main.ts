@@ -91,7 +91,7 @@ $('account-form').addEventListener('submit', async e => {
   if (!session) { toast('Silakan login ke YT Manager terlebih dahulu.'); return; }
   const { error } = await supabase.from('yt_accounts').insert({ label, email, channel_url, user_id: session.user.id });
   if (error) { toast('Gagal menyimpan: ' + error.message); return; }
-  $('account-dialog', HTMLDialogElement).close(); ($('account-form') as HTMLFormElement).reset(); await loadAccounts(); toast('Akun berhasil ditambahkan.');
+  $<HTMLDialogElement>('account-dialog').close(); ($('account-form') as HTMLFormElement).reset(); await loadAccounts(); toast('Akun berhasil ditambahkan.');
 });
 $('open').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
 $('reload').addEventListener('click', () => { if (activeId) selectAccount(activeId); });
