@@ -159,8 +159,8 @@ async function loadChannelStats(account: Account) {
     content.innerHTML = '<div class="stats-empty"><h3>URL channel belum diisi</h3><p>Edit akun ini dan masukkan URL channel YouTube, misalnya https://www.youtube.com/@namachannel atau URL /channel/UC…</p></div>';
     return;
   }
-  const handle = account.channel_url.match(/youtube\\.com\\/@([^/?#]+)/i)?.[1];
-  const channelId = account.channel_url.match(/youtube\\.com\\/channel\\/(UC[\\w-]+)/i)?.[1];
+  const handle = account.channel_url.match(/youtube\.com\/@([^/?#]+)/i)?.[1];
+  const channelId = account.channel_url.match(/youtube\.com\/channel\/(UC[\w-]+)/i)?.[1];
   if (!handle && !channelId) {
     content.innerHTML = '<div class="stats-empty"><h3>URL channel belum didukung</h3><p>Gunakan URL handle seperti youtube.com/@namachannel atau URL channel seperti youtube.com/channel/UC…</p></div>';
     return;
