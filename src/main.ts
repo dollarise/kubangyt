@@ -77,14 +77,14 @@ async function selectAccount(id: string) {
     $('launch').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
   }
 }
-$('add').addEventListener('click', () => $('account-dialog', HTMLDialogElement).showModal());
+$('add').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').showModal());
 $('choose').addEventListener('click', () => $('add').click());
 $('search').addEventListener('input', e => { filter = (e.target as HTMLInputElement).value; render(); });
 $('account-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const label = $('account-name', HTMLInputElement).value.trim();
-  const email = $('account-email', HTMLInputElement).value.trim() || null;
-  const channel_url = $('account-url', HTMLInputElement).value.trim() || null;
+  const label = $<HTMLInputElement>('account-name').value.trim();
+  const email = $<HTMLInputElement>('account-email').value.trim() || null;
+  const channel_url = $<HTMLInputElement>('account-url').value.trim() || null;
   if (!label) return;
   if (!supabase) { toast('Konfigurasi Supabase belum diisi.'); return; }
   const { data: { session } } = await supabase.auth.getSession();
