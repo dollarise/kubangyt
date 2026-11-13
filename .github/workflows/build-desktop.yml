@@ -1,0 +1,59 @@
+name: Build YT Manager Desktop
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "src/**"
+      - "electron/**"
+      - "package.json"
+      - "package-lock.json"
+      - "vite.config.ts"
+      - "tsconfig.json"
+      - ".github/workflows/build-desktop.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  build-windows:
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: package-lock.json
+
+      - name: Install dependencies
+        run: npm install
+
+      - name: Verify Supabase build configuration
+        shell: pwsh
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:VITE_SUPABASE_URL) -or [string]::IsNullOrWhiteSpace($env:VITE_SUPABASE_ANON_KEY)) {
+            Write-Error "Tambahkan GitHub Actions secrets VITE_SUPABASE_URL dan VITE_SUPABASE_ANON_KEY terlebih dahulu."
+            exit 1
+          }
+
+      - name: Build Windows installer
+        run: npm run desktop:pack
+        env:
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
+
+      - name: Upload installer
+        uses: actions/upload-artifact@v4
+        with:
+          name: YT-Manager-Windows-Installer
+          path: release/*.exe
+          if-no-files-found: error
+          retention-days: 14
