@@ -1,7 +1,7 @@
 import './style.css';
 import { createClient } from '@supabase/supabase-js';
 
-declare global { interface Window { ytManager?: { openYouTube: (id: string) => void; } } }
+declare global { interface Window { ytManager?: { openYouTube: (id: string) => void; setBrowserBounds: (bounds: {x:number;y:number;width:number;height:number}) => void; } } }
 
 const env = import.meta.env;
 const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
@@ -31,6 +31,10 @@ app.innerHTML = `
   <div id="toast" class="toast" role="status"></div>`;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+function syncDesktopBrowserBounds() { const stage = $('browser-stage'); if (!window.ytManager || !stage) return; const r = stage.getBoundingClientRect(); window.ytManager.setBrowserBounds({x:r.x,y:r.y,width:r.width,height:r.height}); }
+window.addEventListener('resize', syncDesktopBrowserBounds);
+new MutationObserver(syncDesktopBrowserBounds).observe(document.documentElement,{childList:true,subtree:true,attributes:true});
+setTimeout(syncDesktopBrowserBounds,500);
 const toast = (message: string) => { const el = $('toast'); el.textContent = message; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2800); };
 const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
 
