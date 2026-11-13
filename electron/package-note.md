@@ -1,0 +1,1 @@
+The desktop wrapper is the only place that embeds a full YouTube browser surface. The Cloudflare Pages web build intentionally opens YouTube in a separate tab because third-party framing is restricted and a web page cannot create isolated persistent Chromium profiles.
