@@ -44,8 +44,9 @@ function render() {
   $('active-label').textContent = accounts.find(a => a.id === activeId)?.label ?? 'Belum ada akun dipilih';
   const list = $('account-list');
   const filtered = accounts.filter(a => (a.label + ' ' + (a.email ?? '')).toLowerCase().includes(filter.toLowerCase()));
-  list.innerHTML = filtered.length ? filtered.map(a => `<button class="account ${a.id === activeId ? 'selected' : ''}" data-id="${a.id}"><span class="avatar">${escapeHtml(a.label.slice(0,1).toUpperCase())}</span><span class="account-meta"><b>${escapeHtml(a.label)}</b><small>${escapeHtml(a.email ?? 'Email belum diisi')}</small></span><span class="account-state">${a.id === activeId ? '● Aktif' : 'Pilih'}</span></button>`).join('') : '<div class="empty">Tidak ada akun yang cocok.</div>';
-  list.querySelectorAll<HTMLButtonElement>('[data-id]').forEach(button => button.addEventListener('click', () => selectAccount(button.dataset.id!)));
+  list.innerHTML = filtered.length ? filtered.map(a => `<div class="account-row"><button class="account account-select ${a.id === activeId ? 'selected' : ''}" data-id="${a.id}"><span class="avatar">${escapeHtml(a.label.slice(0,1).toUpperCase())}</span><span class="account-meta"><b>${escapeHtml(a.label)}</b><small>${escapeHtml(a.email ?? 'Email belum diisi')}</small></span><span class="account-state">${a.id === activeId ? '● Aktif' : 'Pilih'}</span></button><button class="account-delete" data-delete-id="${a.id}" aria-label="Hapus akun ${escapeHtml(a.label)}" title="Hapus akun">Hapus</button></div>`).join('') : '<div class="empty">Tidak ada akun yang cocok.</div>';
+  list.querySelectorAll<HTMLButtonElement>('.account-select').forEach(button => button.addEventListener('click', () => selectAccount(button.dataset.id!)));
+  list.querySelectorAll<HTMLButtonElement>('.account-delete').forEach(button => button.addEventListener('click', () => deleteAccount(button.dataset.deleteId!)));
 }
 async function loadAccounts() {
   if (!supabase) { $('connection').innerHTML = '<i></i> Demo mode'; accounts = []; render(); return; }
@@ -94,6 +95,23 @@ function showSignIn() {
       button.textContent = 'Kirim ulang link login';
     }
   });
+}
+async function deleteAccount(id: string) {
+  const account = accounts.find(a => a.id === id);
+  if (!account) return;
+  if (!window.confirm(`Hapus akun "${account.label}" dari YT Manager?`)) return;
+  if (!supabase) { toast('Konfigurasi Supabase belum diisi.'); return; }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { toast('Silakan login ke YT Manager terlebih dahulu.'); return; }
+  const { error } = await supabase.from('yt_accounts').delete().eq('id', id).eq('user_id', session.user.id);
+  if (error) { toast('Gagal menghapus akun: ' + error.message); return; }
+  if (activeId === id) {
+    activeId = '';
+    $('browser-stage').innerHTML = '<div class="welcome"><div class="youtube-mark">▶</div><h2>Pilih akun untuk mulai</h2><p>YouTube akan dibuka di aplikasi desktop dengan sesi browser terpisah untuk setiap akun.</p><button id="choose" class="primary">Pilih akun</button></div>';
+    $('choose').addEventListener('click', () => $('add').click());
+  }
+  await loadAccounts();
+  toast('Akun berhasil dihapus.');
 }
 async function selectAccount(id: string) {
   activeId = id; render();
