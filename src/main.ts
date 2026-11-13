@@ -18,7 +18,7 @@ let editingAccountId: string | null = null;
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
   <div class="shell">
-    <header class="topbar"><div class="brand"><span class="brand-icon">▶</span><span>YT <b>Manager</b></span></div><div class="top-actions"><span id="connection" class="status"><i></i> Local mode</span><button id="add" class="primary">＋ Tambah akun</button></div></header>
+    <header class="topbar"><div class="brand"><span class="brand-icon">▶</span><span>YT <b>Manager</b></span></div><div class="top-actions"><span id="connection" class="status"><i></i> Local mode</span><button id="logout" class="logout" type="button" hidden>Keluar</button><button id="add" class="primary">＋ Tambah akun</button></div></header>
     <main class="layout">
       <section class="browser-panel">
         <div class="browser-head"><div><span class="eyebrow">WORKSPACE</span><h1>YouTube</h1></div><span id="active-label" class="active-label">Belum ada akun dipilih</span></div>
@@ -53,6 +53,7 @@ function render() {
 async function loadAccounts() {
   if (!supabase) { $('connection').innerHTML = '<i></i> Demo mode'; accounts = []; render(); return; }
   const { data: { session } } = await supabase.auth.getSession();
+  $('logout').hidden = !session;
   if (!session) { $('connection').innerHTML = '<i></i> Belum login'; showSignIn(); return; }
   $('connection').innerHTML = '<i></i> Supabase terhubung';
   const { data, error } = await supabase.from('yt_accounts').select('id,label,email,created_at').order('created_at', { ascending: true });
@@ -60,6 +61,7 @@ async function loadAccounts() {
   accounts = data ?? []; render();
 }
 function showSignIn(message = '') {
+  $('logout').hidden = true;
   const stage = $('browser-stage');
   stage.innerHTML = `
     <div class="welcome">
@@ -116,6 +118,7 @@ function showSignIn(message = '') {
   });
 }
 function showSetPasswordForm() {
+  $('logout').hidden = true;
   const stage = $('browser-stage');
   stage.innerHTML = `
     <div class="welcome">
@@ -213,6 +216,17 @@ async function selectAccount(id: string) {
     });
   }
 }
+$('logout').addEventListener('click', async () => {
+  if (!supabase) return;
+  if (!window.confirm('Yakin ingin keluar dari YT Manager?')) return;
+  const button = $<HTMLButtonElement>('logout');
+  button.disabled = true;
+  button.textContent = 'Keluar…';
+  const { error } = await supabase.auth.signOut();
+  button.disabled = false;
+  button.textContent = 'Keluar';
+  if (error) toast('Gagal keluar: ' + error.message);
+});
 $('add').addEventListener('click', () => { resetAccountForm(); $<HTMLDialogElement>('account-dialog').showModal(); });
 $('close-account-dialog').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
 $('cancel-account').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
