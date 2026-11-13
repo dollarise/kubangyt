@@ -112,7 +112,6 @@ function openEditAccount(id: string) {
   $('account-dialog-title').textContent = 'Edit akun YouTube';
   $<HTMLInputElement>('account-name').value = account.label;
   $<HTMLInputElement>('account-email').value = account.email ?? '';
-  $<HTMLInputElement>('account-url').value = account.channel_url ?? '';
   $('save-account').textContent = 'Simpan perubahan';
   $<HTMLDialogElement>('account-dialog').showModal();
 }
@@ -166,7 +165,6 @@ $('account-form').addEventListener('submit', async e => {
     ? accounts.find(account => account.id === editingAccountId)?.label ?? ''
     : nextAccountLabel();
   const email = $<HTMLInputElement>('account-email').value.trim() || null;
-  const channel_url = $<HTMLInputElement>('account-url').value.trim() || null;
   if (!label) return;
   if (!supabase) { toast('Konfigurasi Supabase belum diisi.'); return; }
   const { data: { session } } = await supabase.auth.getSession();
