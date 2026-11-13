@@ -77,21 +77,21 @@ async function selectAccount(id: string) {
     $('launch').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
   }
 }
-$('add').addEventListener('click', () => $('account-dialog').showModal());
+$('add').addEventListener('click', () => $('account-dialog', HTMLDialogElement).showModal());
 $('choose').addEventListener('click', () => $('add').click());
 $('search').addEventListener('input', e => { filter = (e.target as HTMLInputElement).value; render(); });
 $('account-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const label = $('account-name').value.trim();
-  const email = $('account-email').value.trim() || null;
-  const channel_url = $('account-url').value.trim() || null;
+  const label = $('account-name', HTMLInputElement).value.trim();
+  const email = $('account-email', HTMLInputElement).value.trim() || null;
+  const channel_url = $('account-url', HTMLInputElement).value.trim() || null;
   if (!label) return;
   if (!supabase) { toast('Konfigurasi Supabase belum diisi.'); return; }
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { toast('Silakan login ke YT Manager terlebih dahulu.'); return; }
   const { error } = await supabase.from('yt_accounts').insert({ label, email, channel_url, user_id: session.user.id });
   if (error) { toast('Gagal menyimpan: ' + error.message); return; }
-  $('account-dialog').close(); ($('account-form') as HTMLFormElement).reset(); await loadAccounts(); toast('Akun berhasil ditambahkan.');
+  $('account-dialog', HTMLDialogElement).close(); ($('account-form') as HTMLFormElement).reset(); await loadAccounts(); toast('Akun berhasil ditambahkan.');
 });
 $('open').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
 $('reload').addEventListener('click', () => { if (activeId) selectAccount(activeId); });
