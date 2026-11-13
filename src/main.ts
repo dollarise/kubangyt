@@ -56,9 +56,22 @@ async function loadAccounts() {
   $('logout').hidden = !session;
   if (!session) { $('connection').innerHTML = '<i></i> Belum login'; showSignIn(); return; }
   $('connection').innerHTML = '<i></i> Supabase terhubung';
+  if ($('signin-form')) showWorkspaceWelcome();
   const { data, error } = await supabase.from('yt_accounts').select('id,label,email,created_at').order('created_at', { ascending: true });
   if (error) { toast('Gagal memuat akun: ' + error.message); return; }
   accounts = data ?? []; render();
+}
+function showWorkspaceWelcome() {
+  const stage = $('browser-stage');
+  stage.innerHTML = `
+    <div class="welcome">
+      <div class="youtube-mark">▶</div>
+      <h2>Berhasil masuk ke YT Manager</h2>
+      <p>Pilih akun YouTube dari daftar di sebelah kanan, atau tambahkan akun baru untuk mulai.</p>
+      <button id="choose" class="primary" type="button">＋ Tambah akun</button>
+      <small>Versi web mengelola daftar akun. Untuk sesi YouTube terpisah, gunakan aplikasi desktop YT Manager.</small>
+    </div>`;
+  $('choose').addEventListener('click', () => $('add').click());
 }
 function showSignIn(message = '') {
   $('logout').hidden = true;
