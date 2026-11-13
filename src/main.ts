@@ -13,6 +13,7 @@ type Account = { id: string; label: string; email: string | null; channel_url: s
 let accounts: Account[] = [];
 let activeId = '';
 let filter = '';
+let editingAccountId: string | null = null;
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -28,7 +29,7 @@ app.innerHTML = `
     </main>
     <footer><span>YT Manager v1.0</span><span>Data akun tersimpan di Supabase · Sesi browser tersimpan lokal</span></footer>
   </div>
-  <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><h2>Tambah akun YouTube</h2><button class="tool" id="close-account-dialog" type="button" aria-label="Tutup">×</button></div><label>Nama akun<input id="account-name" required placeholder="Contoh: Channel Utama" /></label><label>Email (opsional)<input id="account-email" type="email" placeholder="nama@gmail.com" /></label><label>URL channel (opsional)<input id="account-url" type="url" placeholder="https://www.youtube.com/@channel" /></label><div class="dialog-actions"><button class="secondary" id="cancel-account" type="button">Batal</button><button class="primary" id="save-account" type="submit">Simpan akun</button></div></form></dialog>
+  <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><h2 id="account-dialog-title">Tambah akun YouTube</h2><button class="tool" id="close-account-dialog" type="button" aria-label="Tutup">×</button></div><label>Nama akun<input id="account-name" required placeholder="Contoh: Channel Utama" /></label><label>Email (opsional)<input id="account-email" type="email" placeholder="nama@gmail.com" /></label><label>URL channel (opsional)<input id="account-url" type="url" placeholder="https://www.youtube.com/@channel" /></label><div class="dialog-actions"><button class="secondary" id="cancel-account" type="button">Batal</button><button class="primary" id="save-account" type="submit">Simpan akun</button></div></form></dialog>
   <div id="toast" class="toast" role="status"></div>`;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -44,8 +45,9 @@ function render() {
   $('active-label').textContent = accounts.find(a => a.id === activeId)?.label ?? 'Belum ada akun dipilih';
   const list = $('account-list');
   const filtered = accounts.filter(a => (a.label + ' ' + (a.email ?? '')).toLowerCase().includes(filter.toLowerCase()));
-  list.innerHTML = filtered.length ? filtered.map(a => `<div class="account-row"><button class="account account-select ${a.id === activeId ? 'selected' : ''}" data-id="${a.id}"><span class="avatar">${escapeHtml(a.label.slice(0,1).toUpperCase())}</span><span class="account-meta"><b>${escapeHtml(a.label)}</b><small>${escapeHtml(a.email ?? 'Email belum diisi')}</small></span><span class="account-state">${a.id === activeId ? '● Aktif' : 'Pilih'}</span></button><button class="account-delete" data-delete-id="${a.id}" aria-label="Hapus akun ${escapeHtml(a.label)}" title="Hapus akun">Hapus</button></div>`).join('') : '<div class="empty">Tidak ada akun yang cocok.</div>';
+  list.innerHTML = filtered.length ? filtered.map(a => `<div class="account-row"><button class="account account-select ${a.id === activeId ? 'selected' : ''}" data-id="${a.id}"><span class="avatar">${escapeHtml(a.label.slice(0,1).toUpperCase())}</span><span class="account-meta"><b>${escapeHtml(a.label)}</b><small>${escapeHtml(a.email ?? 'Email belum diisi')}</small></span><span class="account-state">${a.id === activeId ? '● Aktif' : 'Pilih'}</span></button><button class="account-edit" data-edit-id="${a.id}" aria-label="Edit akun ${escapeHtml(a.label)}" title="Edit akun">Edit</button><button class="account-delete" data-delete-id="${a.id}" aria-label="Hapus akun ${escapeHtml(a.label)}" title="Hapus akun">Hapus</button></div>`).join('') : '<div class="empty">Tidak ada akun yang cocok.</div>';
   list.querySelectorAll<HTMLButtonElement>('.account-select').forEach(button => button.addEventListener('click', () => selectAccount(button.dataset.id!)));
+  list.querySelectorAll<HTMLButtonElement>('.account-edit').forEach(button => button.addEventListener('click', () => openEditAccount(button.dataset.editId!)));
   list.querySelectorAll<HTMLButtonElement>('.account-delete').forEach(button => button.addEventListener('click', () => deleteAccount(button.dataset.deleteId!)));
 }
 async function loadAccounts() {
@@ -96,6 +98,23 @@ function showSignIn() {
     }
   });
 }
+function openEditAccount(id: string) {
+  const account = accounts.find(a => a.id === id);
+  if (!account) return;
+  editingAccountId = id;
+  $('account-dialog-title').textContent = 'Edit akun YouTube';
+  $<HTMLInputElement>('account-name').value = account.label;
+  $<HTMLInputElement>('account-email').value = account.email ?? '';
+  $<HTMLInputElement>('account-url').value = account.channel_url ?? '';
+  $('save-account').textContent = 'Simpan perubahan';
+  $<HTMLDialogElement>('account-dialog').showModal();
+}
+function resetAccountForm() {
+  editingAccountId = null;
+  ($('account-form') as HTMLFormElement).reset();
+  $('account-dialog-title').textContent = 'Tambah akun YouTube';
+  $('save-account').textContent = 'Simpan akun';
+}
 async function deleteAccount(id: string) {
   const account = accounts.find(a => a.id === id);
   if (!account) return;
@@ -125,7 +144,7 @@ async function selectAccount(id: string) {
     $('launch').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
   }
 }
-$('add').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').showModal());
+$('add').addEventListener('click', () => { resetAccountForm(); $<HTMLDialogElement>('account-dialog').showModal(); });
 $('close-account-dialog').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
 $('cancel-account').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
 $('account-dialog').addEventListener('click', event => {
@@ -142,9 +161,15 @@ $('account-form').addEventListener('submit', async e => {
   if (!supabase) { toast('Konfigurasi Supabase belum diisi.'); return; }
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { toast('Silakan login ke YT Manager terlebih dahulu.'); return; }
-  const { error } = await supabase.from('yt_accounts').insert({ label, email, channel_url, user_id: session.user.id });
-  if (error) { toast('Gagal menyimpan: ' + error.message); return; }
-  $<HTMLDialogElement>('account-dialog').close(); ($('account-form') as HTMLFormElement).reset(); await loadAccounts(); toast('Akun berhasil ditambahkan.');
+  const result = editingAccountId
+    ? await supabase.from('yt_accounts').update({ label, email, channel_url }).eq('id', editingAccountId).eq('user_id', session.user.id)
+    : await supabase.from('yt_accounts').insert({ label, email, channel_url, user_id: session.user.id });
+  if (result.error) { toast((editingAccountId ? 'Gagal memperbarui: ' : 'Gagal menyimpan: ') + result.error.message); return; }
+  const wasEditing = Boolean(editingAccountId);
+  $<HTMLDialogElement>('account-dialog').close();
+  resetAccountForm();
+  await loadAccounts();
+  toast(wasEditing ? 'Akun berhasil diperbarui.' : 'Akun berhasil ditambahkan.');
 });
 $('open').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
 $('reload').addEventListener('click', () => { if (activeId) selectAccount(activeId); });
