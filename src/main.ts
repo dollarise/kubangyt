@@ -59,42 +59,101 @@ async function loadAccounts() {
   if (error) { toast('Gagal memuat akun: ' + error.message); return; }
   accounts = data ?? []; render();
 }
-function showSignIn() {
+function showSignIn(message = '') {
   const stage = $('browser-stage');
   stage.innerHTML = `
     <div class="welcome">
       <div class="youtube-mark">▶</div>
       <h2>Masuk ke YT Manager</h2>
-      <p>Gunakan akun autentikasi aplikasi. Ini terpisah dari login Google/YouTube di browser.</p>
+      <p>Masuk menggunakan email dan password akun YT Manager Anda.</p>
       <form id="signin-form" class="signin-form">
-        <input id="signin-email" type="email" autocomplete="email" required placeholder="Masukkan alamat email" aria-label="Alamat email" />
-        <button id="signin" class="primary" type="submit">Kirim link login ke email</button>
+        <input id="signin-email" type="email" autocomplete="username" required placeholder="Alamat email" aria-label="Alamat email" />
+        <input id="signin-password" type="password" autocomplete="current-password" required minlength="8" placeholder="Password" aria-label="Password" />
+        <button id="signin" class="primary" type="submit">Masuk</button>
       </form>
-      <small id="signin-message">Link login akan dikirim ke alamat email Anda. Periksa juga folder Spam.</small>
+      <button id="forgot-password" class="text-action" type="button">Belum punya password? Buat password pertama kali</button>
+      <small id="signin-message">${escapeHtml(message || 'Masukkan email dan password untuk masuk.')}</small>
     </div>`;
   $('signin-form').addEventListener('submit', async (event) => {
     event.preventDefault();
     const email = $<HTMLInputElement>('signin-email').value.trim();
+    const password = $<HTMLInputElement>('signin-password').value;
     const button = $<HTMLButtonElement>('signin');
     const message = $('signin-message');
-    if (!email || !supabase) return;
+    if (!email || !password || !supabase) return;
     button.disabled = true;
-    button.textContent = 'Mengirim link…';
-    message.textContent = 'Sedang mengirim link login ke ' + email;
+    button.textContent = 'Memeriksa…';
+    message.textContent = 'Sedang memverifikasi akun…';
     try {
-      // Let Supabase use its configured Site URL. location.origin is "null"
-      // when Electron loads the renderer from a file:// URL.
-      const { error } = await supabase.auth.signInWithOtp({ email });
+      const { error } = await supabase.auth.signInWithPassword({ email, password });
+      message.textContent = error ? 'Login gagal: ' + error.message : 'Login berhasil.';
+      if (!error) await loadAccounts();
+    } catch (error) {
+      message.textContent = 'Terjadi kesalahan: ' + (error instanceof Error ? error.message : String(error));
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Masuk';
+    }
+  });
+  $('forgot-password').addEventListener('click', async () => {
+    const email = $<HTMLInputElement>('signin-email').value.trim();
+    const message = $('signin-message');
+    if (!email) { message.textContent = 'Masukkan email terlebih dahulu, lalu klik Buat password.'; return; }
+    if (!supabase) return;
+    const button = $<HTMLButtonElement>('forgot-password');
+    button.disabled = true;
+    message.textContent = 'Mengirim email untuk membuat password…';
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(email, {
+        redirectTo: window.location.origin
+      });
+      message.textContent = error
+        ? 'Gagal mengirim email: ' + error.message
+        : 'Email pengaturan password dikirim ke ' + email + '. Buka email tersebut sekali untuk membuat password. Setelah itu login selalu memakai password.';
+    } catch (error) {
+      message.textContent = 'Terjadi kesalahan: ' + (error instanceof Error ? error.message : String(error));
+    } finally {
+      button.disabled = false;
+    }
+  });
+}
+function showSetPasswordForm() {
+  const stage = $('browser-stage');
+  stage.innerHTML = `
+    <div class="welcome">
+      <div class="youtube-mark">▶</div>
+      <h2>Buat password YT Manager</h2>
+      <p>Buat password baru untuk akun Anda. Setelah ini, login berikutnya cukup menggunakan email dan password.</p>
+      <form id="set-password-form" class="signin-form">
+        <input id="new-password" type="password" autocomplete="new-password" required minlength="8" placeholder="Password baru (minimal 8 karakter)" aria-label="Password baru" />
+        <input id="confirm-password" type="password" autocomplete="new-password" required minlength="8" placeholder="Ulangi password baru" aria-label="Ulangi password baru" />
+        <button id="save-password" class="primary" type="submit">Simpan password</button>
+      </form>
+      <small id="password-message">Gunakan password yang kuat dan jangan bagikan kepada siapa pun.</small>
+    </div>`;
+  $('set-password-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const password = $<HTMLInputElement>('new-password').value;
+    const confirm = $<HTMLInputElement>('confirm-password').value;
+    const button = $<HTMLButtonElement>('save-password');
+    const message = $('password-message');
+    if (password.length < 8) { message.textContent = 'Password minimal 8 karakter.'; return; }
+    if (password !== confirm) { message.textContent = 'Konfirmasi password tidak sama.'; return; }
+    if (!supabase) return;
+    button.disabled = true;
+    message.textContent = 'Menyimpan password…';
+    try {
+      const { error } = await supabase.auth.updateUser({ password });
       if (error) {
-        message.textContent = 'Gagal mengirim link: ' + error.message;
+        message.textContent = 'Gagal menyimpan password: ' + error.message;
       } else {
-        message.textContent = 'Link login berhasil dikirim ke ' + email + '. Periksa Inbox atau Spam.';
+        await supabase.auth.signOut();
+        showSignIn('Password berhasil dibuat. Silakan login menggunakan email dan password baru.');
       }
     } catch (error) {
       message.textContent = 'Terjadi kesalahan: ' + (error instanceof Error ? error.message : String(error));
     } finally {
       button.disabled = false;
-      button.textContent = 'Kirim ulang link login';
     }
   });
 }
@@ -188,5 +247,5 @@ $('open').addEventListener('click', () => window.open('https://www.youtube.com',
 $('reload').addEventListener('click', () => { if (activeId) selectAccount(activeId); });
 $('back').addEventListener('click', () => toast('Navigasi kembali tersedia di browser desktop.'));
 $('forward').addEventListener('click', () => toast('Navigasi maju tersedia di browser desktop.'));
-supabase?.auth.onAuthStateChange(() => { void loadAccounts(); });
+supabase?.auth.onAuthStateChange((event) => {\n  if (event === 'PASSWORD_RECOVERY') { showSetPasswordForm(); return; }\n  void loadAccounts();\n});
 void loadAccounts();
