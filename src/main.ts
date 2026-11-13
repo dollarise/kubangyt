@@ -28,7 +28,7 @@ app.innerHTML = `
     </main>
     <footer><span>YT Manager v1.0</span><span>Data akun tersimpan di Supabase · Sesi browser tersimpan lokal</span></footer>
   </div>
-  <dialog id="account-dialog"><form method="dialog" id="account-form"><div class="dialog-head"><h2>Tambah akun YouTube</h2><button class="tool" value="cancel">×</button></div><label>Nama akun<input id="account-name" required placeholder="Contoh: Channel Utama" /></label><label>Email (opsional)<input id="account-email" type="email" placeholder="nama@gmail.com" /></label><label>URL channel (opsional)<input id="account-url" type="url" placeholder="https://www.youtube.com/@channel" /></label><div class="dialog-actions"><button class="secondary" value="cancel">Batal</button><button class="primary" id="save-account" value="default">Simpan akun</button></div></form></dialog>
+  <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><h2>Tambah akun YouTube</h2><button class="tool" id="close-account-dialog" type="button" aria-label="Tutup">×</button></div><label>Nama akun<input id="account-name" required placeholder="Contoh: Channel Utama" /></label><label>Email (opsional)<input id="account-email" type="email" placeholder="nama@gmail.com" /></label><label>URL channel (opsional)<input id="account-url" type="url" placeholder="https://www.youtube.com/@channel" /></label><div class="dialog-actions"><button class="secondary" id="cancel-account" type="button">Batal</button><button class="primary" id="save-account" type="submit">Simpan akun</button></div></form></dialog>
   <div id="toast" class="toast" role="status"></div>`;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -108,6 +108,11 @@ async function selectAccount(id: string) {
   }
 }
 $('add').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').showModal());
+$('close-account-dialog').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
+$('cancel-account').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
+$('account-dialog').addEventListener('click', event => {
+  if (event.target === $('account-dialog')) $<HTMLDialogElement>('account-dialog').close();
+});
 $('choose').addEventListener('click', () => $('add').click());
 $('search').addEventListener('input', e => { filter = (e.target as HTMLInputElement).value; render(); });
 $('account-form').addEventListener('submit', async e => {
