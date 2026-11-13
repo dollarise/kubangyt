@@ -245,5 +245,8 @@ $('open').addEventListener('click', () => window.open('https://www.youtube.com',
 $('reload').addEventListener('click', () => { if (activeId) selectAccount(activeId); });
 $('back').addEventListener('click', () => toast('Navigasi kembali tersedia di browser desktop.'));
 $('forward').addEventListener('click', () => toast('Navigasi maju tersedia di browser desktop.'));
-supabase?.auth.onAuthStateChange((event) => {\n  if (event === 'PASSWORD_RECOVERY') { showSetPasswordForm(); return; }\n  void loadAccounts();\n});
+supabase?.auth.onAuthStateChange((event) => {
+  if (event === 'PASSWORD_RECOVERY') { showSetPasswordForm(); return; }
+  void loadAccounts();
+});
 void loadAccounts();
