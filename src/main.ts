@@ -105,7 +105,7 @@ function showSignIn(message = '') {
     message.textContent = 'Mengirim email untuk membuat password…';
     try {
       const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: window.location.origin
+        redirectTo: (window.location.protocol === 'http:' || window.location.protocol === 'https:') ? window.location.origin : 'https://wadahyt.pages.dev'
       });
       message.textContent = error
         ? 'Gagal mengirim email: ' + error.message
