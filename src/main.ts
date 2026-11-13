@@ -58,12 +58,41 @@ async function loadAccounts() {
 }
 function showSignIn() {
   const stage = $('browser-stage');
-  stage.innerHTML = '<div class="welcome"><div class="youtube-mark">▶</div><h2>Masuk ke YT Manager</h2><p>Gunakan akun autentikasi aplikasi. Ini terpisah dari login Google/YouTube di browser.</p><button id="signin" class="primary">Kirim link login ke email</button><small>Pastikan Supabase Auth Email telah diaktifkan.</small></div>';
-  $('signin').addEventListener('click', async () => {
-    const email = prompt('Masukkan email untuk menerima magic link:');
+  stage.innerHTML = `
+    <div class="welcome">
+      <div class="youtube-mark">▶</div>
+      <h2>Masuk ke YT Manager</h2>
+      <p>Gunakan akun autentikasi aplikasi. Ini terpisah dari login Google/YouTube di browser.</p>
+      <form id="signin-form" class="signin-form">
+        <input id="signin-email" type="email" autocomplete="email" required placeholder="Masukkan alamat email" aria-label="Alamat email" />
+        <button id="signin" class="primary" type="submit">Kirim link login ke email</button>
+      </form>
+      <small id="signin-message">Link login akan dikirim ke alamat email Anda. Periksa juga folder Spam.</small>
+    </div>`;
+  $('signin-form').addEventListener('submit', async (event) => {
+    event.preventDefault();
+    const email = $<HTMLInputElement>('signin-email').value.trim();
+    const button = $<HTMLButtonElement>('signin');
+    const message = $('signin-message');
     if (!email || !supabase) return;
-    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin } });
-    toast(error ? error.message : 'Link login dikirim. Periksa email Anda.');
+    button.disabled = true;
+    button.textContent = 'Mengirim link…';
+    message.textContent = 'Sedang mengirim link login ke ' + email;
+    try {
+      // Let Supabase use its configured Site URL. location.origin is "null"
+      // when Electron loads the renderer from a file:// URL.
+      const { error } = await supabase.auth.signInWithOtp({ email });
+      if (error) {
+        message.textContent = 'Gagal mengirim link: ' + error.message;
+      } else {
+        message.textContent = 'Link login berhasil dikirim ke ' + email + '. Periksa Inbox atau Spam.';
+      }
+    } catch (error) {
+      message.textContent = 'Terjadi kesalahan: ' + (error instanceof Error ? error.message : String(error));
+    } finally {
+      button.disabled = false;
+      button.textContent = 'Kirim ulang link login';
+    }
   });
 }
 async function selectAccount(id: string) {
