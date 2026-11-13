@@ -148,7 +148,12 @@ async function selectAccount(id: string) {
     $('browser-stage').innerHTML = '<div class="desktop-note"><h2>Memuat YouTube…</h2><p>Browser desktop sedang membuka sesi khusus akun ini.</p></div>';
   } else {
     $('browser-stage').innerHTML = '<div class="welcome"><div class="youtube-mark">▶</div><h2>' + escapeHtml(account.label) + '</h2><p>Profil browser akun ini siap digunakan di aplikasi desktop.</p><button class="primary" id="launch">Buka YouTube di tab baru</button><small>Di versi web, YouTube dibuka di tab terpisah. Untuk panel browser terintegrasi, gunakan aplikasi desktop.</small></div>';
-    $('launch').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
+    $('launch').addEventListener('click', () => {
+      const continueUrl = encodeURIComponent('https://www.youtube.com/');
+      const emailHint = account.email ? `&Email=${encodeURIComponent(account.email)}` : '';
+      const accountChooserUrl = `https://accounts.google.com/AccountChooser?continue=${continueUrl}${emailHint}`;
+      window.open(accountChooserUrl, '_blank', 'noopener');
+    });
   }
 }
 $('add').addEventListener('click', () => { resetAccountForm(); $<HTMLDialogElement>('account-dialog').showModal(); });
