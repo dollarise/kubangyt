@@ -9,7 +9,7 @@ const supabaseUrl = (env.VITE_SUPABASE_URL as string | undefined) ?? 'https://dw
 const supabaseKey = (env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? 'sb_publishable_Ay3EVoUrBVBLCVIyevofVA_BOBpQ1w7';
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
-type Account = { id: string; label: string; email: string | null; channel_url: string | null; created_at?: string };
+type Account = { id: string; label: string; email: string | null; created_at?: string };
 let accounts: Account[] = [];
 let activeId = '';
 let filter = '';
@@ -29,7 +29,7 @@ app.innerHTML = `
     </main>
     <footer><span>YT Manager v1.0</span><span>Data akun tersimpan di Supabase · Sesi browser tersimpan lokal</span></footer>
   </div>
-  <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><h2 id="account-dialog-title">Tambah akun YouTube</h2><button class="tool" id="close-account-dialog" type="button" aria-label="Tutup">×</button></div><label>Nomor akun (otomatis)<input id="account-name" required readonly aria-readonly="true" /></label><label>Email (opsional)<input id="account-email" type="email" placeholder="nama@gmail.com" /></label><label>URL channel (opsional)<input id="account-url" type="url" placeholder="https://www.youtube.com/@channel" /></label><div class="dialog-actions"><button class="secondary" id="cancel-account" type="button">Batal</button><button class="primary" id="save-account" type="submit">Simpan akun</button></div></form></dialog>
+  <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><h2 id="account-dialog-title">Tambah akun YouTube</h2><button class="tool" id="close-account-dialog" type="button" aria-label="Tutup">×</button></div><label>Nomor akun (otomatis)<input id="account-name" required readonly aria-readonly="true" /></label><label>Email Google / YouTube<input id="account-email" type="email" autocomplete="off" required placeholder="nama@gmail.com" /></label><div class="dialog-actions"><button class="secondary" id="cancel-account" type="button">Batal</button><button class="primary" id="save-account" type="submit">Simpan akun</button></div></form></dialog>
   <div id="toast" class="toast" role="status"></div>`;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -55,7 +55,7 @@ async function loadAccounts() {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { $('connection').innerHTML = '<i></i> Belum login'; showSignIn(); return; }
   $('connection').innerHTML = '<i></i> Supabase terhubung';
-  const { data, error } = await supabase.from('yt_accounts').select('id,label,email,channel_url,created_at').order('created_at', { ascending: true });
+  const { data, error } = await supabase.from('yt_accounts').select('id,label,email,created_at').order('created_at', { ascending: true });
   if (error) { toast('Gagal memuat akun: ' + error.message); return; }
   accounts = data ?? []; render();
 }
@@ -145,7 +145,7 @@ async function selectAccount(id: string) {
   const account = accounts.find(a => a.id === id);
   if (!account) return;
   if (window.ytManager?.openYouTube) {
-    window.ytManager.openYouTube(account.id);
+    window.ytManager.openYouTube(account.id, account.email ?? '');
     $('browser-stage').innerHTML = '<div class="desktop-note"><h2>Memuat YouTube…</h2><p>Browser desktop sedang membuka sesi khusus akun ini.</p></div>';
   } else {
     $('browser-stage').innerHTML = '<div class="welcome"><div class="youtube-mark">▶</div><h2>' + escapeHtml(account.label) + '</h2><p>Profil browser akun ini siap digunakan di aplikasi desktop.</p><button class="primary" id="launch">Buka YouTube di tab baru</button><small>Di versi web, YouTube dibuka di tab terpisah. Untuk panel browser terintegrasi, gunakan aplikasi desktop.</small></div>';
@@ -172,8 +172,8 @@ $('account-form').addEventListener('submit', async e => {
   const { data: { session } } = await supabase.auth.getSession();
   if (!session) { toast('Silakan login ke YT Manager terlebih dahulu.'); return; }
   const result = editingAccountId
-    ? await supabase.from('yt_accounts').update({ label, email, channel_url }).eq('id', editingAccountId).eq('user_id', session.user.id)
-    : await supabase.from('yt_accounts').insert({ label, email, channel_url, user_id: session.user.id });
+    ? await supabase.from('yt_accounts').update({ label, email }).eq('id', editingAccountId).eq('user_id', session.user.id)
+    : await supabase.from('yt_accounts').insert({ label, email, user_id: session.user.id });
   if (result.error) { toast((editingAccountId ? 'Gagal memperbarui: ' : 'Gagal menyimpan: ') + result.error.message); return; }
   const wasEditing = Boolean(editingAccountId);
   $<HTMLDialogElement>('account-dialog').close();
