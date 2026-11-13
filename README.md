@@ -18,6 +18,7 @@ YT Manager combines a Cloudflare Pages web dashboard with an optional Windows de
 - Build command: `npm run build`
 - Output directory: `dist`
 - Set `VITE_SUPABASE_URL` and `VITE_SUPABASE_ANON_KEY` (or publishable key) in Pages environment variables.
+- For public channel totals, enable YouTube Data API v3 in Google Cloud and set `VITE_YOUTUBE_API_KEY` in Pages environment variables. Restrict the API key to YouTube Data API v3 and the deployed site's HTTP referrers (for example `https://wadahyt.pages.dev/*`). The key is included in the browser bundle, so referrer and API restrictions are important.
 
 ## Database
 Apply `supabase/migrations/202611130001_initial_schema.sql` in Supabase SQL Editor. New public tables are explicitly granted to authenticated users and protected by RLS.
