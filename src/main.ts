@@ -29,7 +29,7 @@ app.innerHTML = `
     </main>
     <footer><span>YT Manager v1.0</span><span>Data akun tersimpan di Supabase · Sesi browser tersimpan lokal</span></footer>
   </div>
-  <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><h2 id="account-dialog-title">Tambah akun YouTube</h2><button class="tool" id="close-account-dialog" type="button" aria-label="Tutup">×</button></div><label>Nama akun<input id="account-name" required placeholder="Contoh: Channel Utama" /></label><label>Email (opsional)<input id="account-email" type="email" placeholder="nama@gmail.com" /></label><label>URL channel (opsional)<input id="account-url" type="url" placeholder="https://www.youtube.com/@channel" /></label><div class="dialog-actions"><button class="secondary" id="cancel-account" type="button">Batal</button><button class="primary" id="save-account" type="submit">Simpan akun</button></div></form></dialog>
+  <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><h2 id="account-dialog-title">Tambah akun YouTube</h2><button class="tool" id="close-account-dialog" type="button" aria-label="Tutup">×</button></div><label>Nomor akun (otomatis)<input id="account-name" required readonly aria-readonly="true" /></label><label>Email (opsional)<input id="account-email" type="email" placeholder="nama@gmail.com" /></label><label>URL channel (opsional)<input id="account-url" type="url" placeholder="https://www.youtube.com/@channel" /></label><div class="dialog-actions"><button class="secondary" id="cancel-account" type="button">Batal</button><button class="primary" id="save-account" type="submit">Simpan akun</button></div></form></dialog>
   <div id="toast" class="toast" role="status"></div>`;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -98,6 +98,13 @@ function showSignIn() {
     }
   });
 }
+function nextAccountLabel() {
+  const highest = accounts.reduce((max, account) => {
+    const number = /^\d{4,}$/.test(account.label) ? Number(account.label) : 0;
+    return Math.max(max, number);
+  }, 0);
+  return String(highest + 1).padStart(4, '0');
+}
 function openEditAccount(id: string) {
   const account = accounts.find(a => a.id === id);
   if (!account) return;
@@ -113,6 +120,7 @@ function resetAccountForm() {
   editingAccountId = null;
   ($('account-form') as HTMLFormElement).reset();
   $('account-dialog-title').textContent = 'Tambah akun YouTube';
+  $<HTMLInputElement>('account-name').value = nextAccountLabel();
   $('save-account').textContent = 'Simpan akun';
 }
 async function deleteAccount(id: string) {
@@ -154,7 +162,9 @@ $('choose').addEventListener('click', () => $('add').click());
 $('search').addEventListener('input', e => { filter = (e.target as HTMLInputElement).value; render(); });
 $('account-form').addEventListener('submit', async e => {
   e.preventDefault();
-  const label = $<HTMLInputElement>('account-name').value.trim();
+  const label = editingAccountId
+    ? accounts.find(account => account.id === editingAccountId)?.label ?? ''
+    : nextAccountLabel();
   const email = $<HTMLInputElement>('account-email').value.trim() || null;
   const channel_url = $<HTMLInputElement>('account-url').value.trim() || null;
   if (!label) return;
