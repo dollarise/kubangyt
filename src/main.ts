@@ -4,8 +4,9 @@ import { createClient } from '@supabase/supabase-js';
 declare global { interface Window { ytManager?: { openYouTube: (id: string) => void; setBrowserBounds: (bounds: {x:number;y:number;width:number;height:number}) => void; } } }
 
 const env = import.meta.env;
-const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
-const supabaseKey = env.VITE_SUPABASE_ANON_KEY as string | undefined;
+// Supabase publishable key is designed for public client-side use. Environment variables override these defaults.
+const supabaseUrl = (env.VITE_SUPABASE_URL as string | undefined) ?? 'https://dwphicuwoeanxcwyihfj.supabase.co';
+const supabaseKey = (env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? 'sb_publishable_Ay3EVoUrBVBLCVIyevofVA_BOBpQ1w7';
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 type Account = { id: string; label: string; email: string | null; channel_url: string | null; created_at?: string };
