@@ -1,0 +1,97 @@
+import './style.css';
+import { createClient } from '@supabase/supabase-js';
+
+declare global { interface Window { ytManager?: { openYouTube: (id: string) => void; } } }
+
+const env = import.meta.env;
+const supabaseUrl = env.VITE_SUPABASE_URL as string | undefined;
+const supabaseKey = env.VITE_SUPABASE_ANON_KEY as string | undefined;
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+
+type Account = { id: string; label: string; email: string | null; channel_url: string | null; created_at?: string };
+let accounts: Account[] = [];
+let activeId = '';
+let filter = '';
+
+const app = document.querySelector<HTMLDivElement>('#app')!;
+app.innerHTML = `
+  <div class="shell">
+    <header class="topbar"><div class="brand"><span class="brand-icon">▶</span><span>YT <b>Manager</b></span></div><div class="top-actions"><span id="connection" class="status"><i></i> Local mode</span><button id="add" class="primary">＋ Tambah akun</button></div></header>
+    <main class="layout">
+      <section class="browser-panel">
+        <div class="browser-head"><div><span class="eyebrow">WORKSPACE</span><h1>YouTube</h1></div><span id="active-label" class="active-label">Belum ada akun dipilih</span></div>
+        <div class="browser-toolbar"><button class="tool" id="back" title="Kembali">‹</button><button class="tool" id="forward" title="Maju">›</button><button class="tool" id="reload" title="Muat ulang">↻</button><div class="address">https://www.youtube.com</div><button class="tool" id="open" title="Buka YouTube">↗</button></div>
+        <div class="browser-stage" id="browser-stage"><div class="welcome"><div class="youtube-mark">▶</div><h2>Pilih akun untuk mulai</h2><p>YouTube akan dibuka di aplikasi desktop dengan sesi browser terpisah untuk setiap akun.</p><button id="choose" class="primary">Pilih akun</button><small>Versi web hanya menampilkan dashboard. Browser YouTube penuh tersedia di aplikasi desktop.</small></div></div>
+      </section>
+      <aside class="accounts-panel"><div class="accounts-title"><div><span class="eyebrow">ACCOUNT CENTER</span><h2>Semua Akun</h2></div><span id="count" class="count">0</span></div><label class="search"><span>⌕</span><input id="search" placeholder="Cari nama atau email..." /></label><div class="account-list" id="account-list"><div class="empty">Belum ada akun. Tambahkan akun pertama.</div></div><div class="panel-foot"><span>Profil browser disimpan lokal di perangkat</span><span class="dot"></span></div></aside>
+    </main>
+    <footer><span>YT Manager v1.0</span><span>Data akun tersimpan di Supabase · Sesi browser tersimpan lokal</span></footer>
+  </div>
+  <dialog id="account-dialog"><form method="dialog" id="account-form"><div class="dialog-head"><h2>Tambah akun YouTube</h2><button class="tool" value="cancel">×</button></div><label>Nama akun<input id="account-name" required placeholder="Contoh: Channel Utama" /></label><label>Email (opsional)<input id="account-email" type="email" placeholder="nama@gmail.com" /></label><label>URL channel (opsional)<input id="account-url" type="url" placeholder="https://www.youtube.com/@channel" /></label><div class="dialog-actions"><button class="secondary" value="cancel">Batal</button><button class="primary" id="save-account" value="default">Simpan akun</button></div></form></dialog>
+  <div id="toast" class="toast" role="status"></div>`;
+
+const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
+const toast = (message: string) => { const el = $('toast'); el.textContent = message; el.classList.add('show'); setTimeout(() => el.classList.remove('show'), 2800); };
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]!));
+
+function render() {
+  $('count').textContent = String(accounts.length);
+  $('active-label').textContent = accounts.find(a => a.id === activeId)?.label ?? 'Belum ada akun dipilih';
+  const list = $('account-list');
+  const filtered = accounts.filter(a => (a.label + ' ' + (a.email ?? '')).toLowerCase().includes(filter.toLowerCase()));
+  list.innerHTML = filtered.length ? filtered.map(a => `<button class="account ${a.id === activeId ? 'selected' : ''}" data-id="${a.id}"><span class="avatar">${escapeHtml(a.label.slice(0,1).toUpperCase())}</span><span class="account-meta"><b>${escapeHtml(a.label)}</b><small>${escapeHtml(a.email ?? 'Email belum diisi')}</small></span><span class="account-state">${a.id === activeId ? '● Aktif' : 'Pilih'}</span></button>`).join('') : '<div class="empty">Tidak ada akun yang cocok.</div>';
+  list.querySelectorAll<HTMLButtonElement>('[data-id]').forEach(button => button.addEventListener('click', () => selectAccount(button.dataset.id!)));
+}
+async function loadAccounts() {
+  if (!supabase) { $('connection').innerHTML = '<i></i> Demo mode'; accounts = []; render(); return; }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { $('connection').innerHTML = '<i></i> Belum login'; showSignIn(); return; }
+  $('connection').innerHTML = '<i></i> Supabase terhubung';
+  const { data, error } = await supabase.from('yt_accounts').select('id,label,email,channel_url,created_at').order('created_at', { ascending: true });
+  if (error) { toast('Gagal memuat akun: ' + error.message); return; }
+  accounts = data ?? []; render();
+}
+function showSignIn() {
+  const stage = $('browser-stage');
+  stage.innerHTML = '<div class="welcome"><div class="youtube-mark">▶</div><h2>Masuk ke YT Manager</h2><p>Gunakan akun autentikasi aplikasi. Ini terpisah dari login Google/YouTube di browser.</p><button id="signin" class="primary">Kirim link login ke email</button><small>Pastikan Supabase Auth Email telah diaktifkan.</small></div>';
+  $('signin').addEventListener('click', async () => {
+    const email = prompt('Masukkan email untuk menerima magic link:');
+    if (!email || !supabase) return;
+    const { error } = await supabase.auth.signInWithOtp({ email, options: { emailRedirectTo: location.origin } });
+    toast(error ? error.message : 'Link login dikirim. Periksa email Anda.');
+  });
+}
+async function selectAccount(id: string) {
+  activeId = id; render();
+  const account = accounts.find(a => a.id === id);
+  if (!account) return;
+  if (window.ytManager?.openYouTube) {
+    window.ytManager.openYouTube(account.id);
+    $('browser-stage').innerHTML = '<div class="desktop-note"><h2>Memuat YouTube…</h2><p>Browser desktop sedang membuka sesi khusus akun ini.</p></div>';
+  } else {
+    $('browser-stage').innerHTML = '<div class="welcome"><div class="youtube-mark">▶</div><h2>' + escapeHtml(account.label) + '</h2><p>Profil browser akun ini siap digunakan di aplikasi desktop.</p><button class="primary" id="launch">Buka YouTube di tab baru</button><small>Di versi web, YouTube dibuka di tab terpisah. Untuk panel browser terintegrasi, gunakan aplikasi desktop.</small></div>';
+    $('launch').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
+  }
+}
+$('add').addEventListener('click', () => $('account-dialog').showModal());
+$('choose').addEventListener('click', () => $('add').click());
+$('search').addEventListener('input', e => { filter = (e.target as HTMLInputElement).value; render(); });
+$('account-form').addEventListener('submit', async e => {
+  e.preventDefault();
+  const label = $('account-name').value.trim();
+  const email = $('account-email').value.trim() || null;
+  const channel_url = $('account-url').value.trim() || null;
+  if (!label) return;
+  if (!supabase) { toast('Konfigurasi Supabase belum diisi.'); return; }
+  const { data: { session } } = await supabase.auth.getSession();
+  if (!session) { toast('Silakan login ke YT Manager terlebih dahulu.'); return; }
+  const { error } = await supabase.from('yt_accounts').insert({ label, email, channel_url, user_id: session.user.id });
+  if (error) { toast('Gagal menyimpan: ' + error.message); return; }
+  $('account-dialog').close(); ($('account-form') as HTMLFormElement).reset(); await loadAccounts(); toast('Akun berhasil ditambahkan.');
+});
+$('open').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
+$('reload').addEventListener('click', () => { if (activeId) selectAccount(activeId); });
+$('back').addEventListener('click', () => toast('Navigasi kembali tersedia di browser desktop.'));
+$('forward').addEventListener('click', () => toast('Navigasi maju tersedia di browser desktop.'));
+supabase?.auth.onAuthStateChange(() => { void loadAccounts(); });
+void loadAccounts();
