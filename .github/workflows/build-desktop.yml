@@ -11,6 +11,7 @@ on:
       - "vite.config.ts"
       - "tsconfig.json"
       - ".github/workflows/build-desktop.yml"
+      - ".github/workflows/publish-desktop-release.yml"
 
 permissions:
   contents: read
