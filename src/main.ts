@@ -21,8 +21,6 @@ app.innerHTML = `
     <header class="topbar"><div class="brand"><span class="brand-icon">▶</span><span>YT <b>Manager</b></span></div><div class="top-actions"><span id="connection" class="status"><i></i> Local mode</span><button id="logout" class="logout" type="button" hidden>Keluar</button><button id="add" class="primary">＋ Tambah akun</button></div></header>
     <main class="layout">
       <section class="browser-panel">
-        <div class="browser-head"><div><span class="eyebrow">WORKSPACE</span><h1>YouTube</h1></div><span id="active-label" class="active-label">Belum ada akun dipilih</span></div>
-        <div class="browser-toolbar"><button class="tool" id="back" title="Kembali">‹</button><button class="tool" id="forward" title="Maju">›</button><button class="tool" id="reload" title="Muat ulang">↻</button><div class="address">https://www.youtube.com</div><button class="tool" id="open" title="Buka YouTube">↗</button></div>
         <div class="browser-stage" id="browser-stage"><div class="welcome"><div class="youtube-mark">▶</div><h2>Pilih akun untuk mulai</h2><p>YouTube akan dibuka di aplikasi desktop dengan sesi browser terpisah untuk setiap akun.</p><button id="choose" class="primary">Pilih akun</button><small>Versi web hanya menampilkan dashboard. Browser YouTube penuh tersedia di aplikasi desktop.</small></div></div>
       </section>
       <aside class="accounts-panel"><div class="accounts-title"><div><span class="eyebrow">ACCOUNT CENTER</span><h2>Semua Akun</h2></div><span id="count" class="count">0</span></div><label class="search"><span>⌕</span><input id="search" placeholder="Cari nama atau email..." /></label><div class="account-list" id="account-list"><div class="empty">Belum ada akun. Tambahkan akun pertama.</div></div><div class="panel-foot"><span>Profil browser disimpan lokal di perangkat</span><span class="dot"></span></div></aside>
@@ -55,7 +53,6 @@ const escapeHtml = (value: string) => value.replace(/[&<>"']/g, c => ({'&':'&amp
 
 function render() {
   $('count').textContent = String(accounts.length);
-  $('active-label').textContent = accounts.find(a => a.id === activeId)?.label ?? 'Belum ada akun dipilih';
   const list = $('account-list');
   const filtered = accounts.filter(a => (a.label + ' ' + (a.email ?? '')).toLowerCase().includes(filter.toLowerCase()));
   list.innerHTML = filtered.length ? filtered.map(a => `<div class="account-row"><button class="account account-select ${a.id === activeId ? 'selected' : ''}" data-id="${a.id}"><span class="avatar">${escapeHtml(a.label.slice(0,1).toUpperCase())}</span><span class="account-meta"><b>${escapeHtml(a.label)}</b><small>${escapeHtml(a.email ?? 'Email belum diisi')}</small></span><span class="account-state">${a.id === activeId ? '● Aktif' : 'Pilih'}</span></button><button class="account-edit" data-edit-id="${a.id}" aria-label="Edit akun ${escapeHtml(a.label)}" title="Edit akun">Edit</button><button class="account-delete" data-delete-id="${a.id}" aria-label="Hapus akun ${escapeHtml(a.label)}" title="Hapus akun">Hapus</button></div>`).join('') : '<div class="empty">Tidak ada akun yang cocok.</div>';
@@ -281,10 +278,6 @@ $('account-form').addEventListener('submit', async e => {
   await loadAccounts();
   toast(wasEditing ? 'Akun berhasil diperbarui.' : 'Akun berhasil ditambahkan.');
 });
-$('open').addEventListener('click', () => window.open('https://www.youtube.com', '_blank', 'noopener'));
-$('reload').addEventListener('click', () => { if (activeId) selectAccount(activeId); });
-$('back').addEventListener('click', () => toast('Navigasi kembali tersedia di browser desktop.'));
-$('forward').addEventListener('click', () => toast('Navigasi maju tersedia di browser desktop.'));
 supabase?.auth.onAuthStateChange((event) => {
   if (event === 'PASSWORD_RECOVERY') { showSetPasswordForm(); return; }
   void loadAccounts();
