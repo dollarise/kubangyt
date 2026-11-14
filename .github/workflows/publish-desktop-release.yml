@@ -1,4 +1,4 @@
-name: Publish YT Manager v1.0.3 Release
+name: Publish YT Manager v1.0.4 Release
 
 on:
   workflow_run:
@@ -18,7 +18,7 @@ jobs:
       - name: Download installer from successful desktop build
         uses: actions/download-artifact@v4
         with:
-          name: YT-Manager-v1.0.3-Windows-Installer
+          name: YT-Manager-v1.0.4-Windows-Installer
           path: release-assets
           repository: dollarise/kubangyt
           run-id: ${{ github.event.workflow_run.id }}
@@ -26,24 +26,25 @@ jobs:
 
       - name: Verify installer
         run: |
-          test -s "release-assets/YT Manager Setup 1.0.3.exe"
+          test -s "release-assets/YT Manager Setup 1.0.4.exe"
           ls -lh release-assets/
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v1.0.3
-          name: YT Manager v1.0.3 — Simplified Workspace
+          tag_name: v1.0.4
+          name: YT Manager v1.0.4 — Per-Account Browser Profiles
           body: |
-            YT Manager v1.0.3 untuk Windows.
+            YT Manager v1.0.4 untuk Windows.
 
             **Pembaruan:**
-            - Menghapus header Workspace dan toolbar browser yang tidak diperlukan.
-            - YouTube tetap dibuka di dalam aplikasi.
-            - Mempertahankan sesi browser terpisah untuk setiap akun.
-            - Melanjutkan optimasi penggunaan RAM dari versi sebelumnya.
+            - Menambahkan pengaturan profil browser untuk setiap akun.
+            - Pengaturan zoom browser tersimpan secara terpisah per akun.
+            - Pengguna dapat memilih halaman awal YouTube atau YouTube Studio per akun.
+            - Akun baru otomatis memperoleh profil browser dan sesi terpisah.
+            - Cookie dan data sesi setiap akun tetap terisolasi.
 
-            **Installer:** Unduh file `YT Manager Setup 1.0.3.exe` pada bagian Assets.
+            **Installer:** Unduh file `YT Manager Setup 1.0.4.exe` pada bagian Assets.
           token: ${{ secrets.RELEASE_TOKEN }}
           files: release-assets/*.exe
           overwrite_files: true
