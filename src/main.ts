@@ -1,7 +1,7 @@
 import './style.css';
 import { createClient } from '@supabase/supabase-js';
 
-declare global { interface Window { ytManager?: { openYouTube: (id: string, email?: string, profile?: { zoom: number; startPage: 'home' | 'studio' }) => void; setBrowserBounds: (bounds: {x:number;y:number;width:number;height:number}) => void; } } } }
+declare global { interface Window { ytManager?: { openYouTube: (id: string, email?: string, profile?: { zoom: number; startPage: 'home' | 'studio' }) => void; setBrowserBounds: (bounds: {x:number;y:number;width:number;height:number}) => void; } } }
 
 const env = import.meta.env;
 // Supabase publishable key is designed for public client-side use. Environment variables override these defaults.
