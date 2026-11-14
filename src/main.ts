@@ -1,7 +1,7 @@
 import './style.css';
 import { createClient } from '@supabase/supabase-js';
 
-declare global { interface Window { ytManager?: { openYouTube: (id: string, email?: string) => void; setBrowserBounds: (bounds: {x:number;y:number;width:number;height:number}) => void; } } }
+declare global { interface Window { ytManager?: { openYouTube: (id: string, email?: string, profile?: { zoom: number; startPage: 'home' | 'studio' }) => void; setBrowserBounds: (bounds: {x:number;y:number;width:number;height:number}) => void; } } } }
 
 const env = import.meta.env;
 // Supabase publishable key is designed for public client-side use. Environment variables override these defaults.
@@ -10,10 +10,19 @@ const supabaseKey = (env.VITE_SUPABASE_ANON_KEY as string | undefined) ?? 'sb_pu
 const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 type Account = { id: string; label: string; email: string | null; created_at?: string };
+type AccountProfile = { zoom: number; startPage: 'home' | 'studio' };
+const DEFAULT_PROFILE: AccountProfile = { zoom: 1, startPage: 'home' };
+const profileKey = (id: string) => `yt-manager:account-profile:${id}`;
+function getAccountProfile(id: string): AccountProfile {
+  try { const value = JSON.parse(localStorage.getItem(profileKey(id)) || 'null'); return { zoom: [0.8,0.9,1,1.1,1.2,1.25].includes(value?.zoom) ? value.zoom : 1, startPage: value?.startPage === 'studio' ? 'studio' : 'home' }; }
+  catch { return { ...DEFAULT_PROFILE }; }
+}
+function saveAccountProfile(id: string, profile: AccountProfile) { localStorage.setItem(profileKey(id), JSON.stringify(profile)); }
 let accounts: Account[] = [];
 let activeId = '';
 let filter = '';
 let editingAccountId: string | null = null;
+let editingProfileAccountId: string | null = null;
 
 const app = document.querySelector<HTMLDivElement>('#app')!;
 app.innerHTML = `
@@ -28,6 +37,7 @@ app.innerHTML = `
     <footer><span>YT Manager v1.0</span><span>Data akun tersimpan di Supabase · Sesi browser tersimpan lokal</span></footer>
   </div>
   <dialog id="account-dialog"><form id="account-form"><div class="dialog-head"><h2 id="account-dialog-title">Tambah akun YouTube</h2><button class="tool" id="close-account-dialog" type="button" aria-label="Tutup">×</button></div><label>Nomor akun (otomatis)<input id="account-name" required readonly aria-readonly="true" /></label><label>Email Google / YouTube<input id="account-email" type="email" autocomplete="off" required placeholder="nama@gmail.com" /></label><div class="dialog-actions"><button class="secondary" id="cancel-account" type="button">Batal</button><button class="primary" id="save-account" type="submit">Simpan akun</button></div></form></dialog>
+  <dialog id="profile-dialog"><form id="profile-form"><div class="dialog-head"><h2>Pengaturan profil akun</h2><button class="tool" id="close-profile-dialog" type="button" aria-label="Tutup">×</button></div><p id="profile-account-label" class="profile-note"></p><label>Zoom browser<select id="profile-zoom"><option value="0.8">80%</option><option value="0.9">90%</option><option value="1">100%</option><option value="1.1">110%</option><option value="1.2">120%</option><option value="1.25">125%</option></select></label><label>Halaman awal YouTube<select id="profile-start-page"><option value="home">Beranda YouTube</option><option value="studio">YouTube Studio</option></select></label><p class="profile-note">Pengaturan ini tersimpan terpisah untuk akun ini di perangkat ini. Cookie dan sesi login tetap dipisahkan otomatis.</p><div class="dialog-actions"><button class="secondary" id="cancel-profile" type="button">Batal</button><button class="primary" type="submit">Simpan profil</button></div></form></dialog>
   <div id="toast" class="toast" role="status"></div>`;
 
 const $ = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
@@ -55,9 +65,10 @@ function render() {
   $('count').textContent = String(accounts.length);
   const list = $('account-list');
   const filtered = accounts.filter(a => (a.label + ' ' + (a.email ?? '')).toLowerCase().includes(filter.toLowerCase()));
-  list.innerHTML = filtered.length ? filtered.map(a => `<div class="account-row"><button class="account account-select ${a.id === activeId ? 'selected' : ''}" data-id="${a.id}"><span class="avatar">${escapeHtml(a.label.slice(0,1).toUpperCase())}</span><span class="account-meta"><b>${escapeHtml(a.label)}</b><small>${escapeHtml(a.email ?? 'Email belum diisi')}</small></span><span class="account-state">${a.id === activeId ? '● Aktif' : 'Pilih'}</span></button><button class="account-edit" data-edit-id="${a.id}" aria-label="Edit akun ${escapeHtml(a.label)}" title="Edit akun">Edit</button><button class="account-delete" data-delete-id="${a.id}" aria-label="Hapus akun ${escapeHtml(a.label)}" title="Hapus akun">Hapus</button></div>`).join('') : '<div class="empty">Tidak ada akun yang cocok.</div>';
+  list.innerHTML = filtered.length ? filtered.map(a => `<div class="account-row"><button class="account account-select ${a.id === activeId ? 'selected' : ''}" data-id="${a.id}"><span class="avatar">${escapeHtml(a.label.slice(0,1).toUpperCase())}</span><span class="account-meta"><b>${escapeHtml(a.label)}</b><small>${escapeHtml(a.email ?? 'Email belum diisi')}</small></span><span class="account-state">${a.id === activeId ? '● Aktif' : 'Pilih'}</span></button><button class="account-edit" data-profile-id="${a.id}" aria-label="Pengaturan profil ${escapeHtml(a.label)}" title="Pengaturan profil">Profil</button><button class="account-edit" data-edit-id="${a.id}" aria-label="Edit akun ${escapeHtml(a.label)}" title="Edit akun">Edit</button><button class="account-delete" data-delete-id="${a.id}" aria-label="Hapus akun ${escapeHtml(a.label)}" title="Hapus akun">Hapus</button></div>`).join('') : '<div class="empty">Tidak ada akun yang cocok.</div>';
   list.querySelectorAll<HTMLButtonElement>('.account-select').forEach(button => button.addEventListener('click', () => selectAccount(button.dataset.id!)));
-  list.querySelectorAll<HTMLButtonElement>('.account-edit').forEach(button => button.addEventListener('click', () => openEditAccount(button.dataset.editId!)));
+  list.querySelectorAll<HTMLButtonElement>('[data-profile-id]').forEach(button => button.addEventListener('click', () => openProfileSettings(button.dataset.profileId!)));
+  list.querySelectorAll<HTMLButtonElement>('[data-edit-id]').forEach(button => button.addEventListener('click', () => openEditAccount(button.dataset.editId!)));
   list.querySelectorAll<HTMLButtonElement>('.account-delete').forEach(button => button.addEventListener('click', () => deleteAccount(button.dataset.deleteId!)));
 }
 async function loadAccounts() {
@@ -188,6 +199,16 @@ function nextAccountLabel() {
   }, 0);
   return String(highest + 1).padStart(4, '0');
 }
+function openProfileSettings(id: string) {
+  const account = accounts.find(a => a.id === id);
+  if (!account) return;
+  editingProfileAccountId = id;
+  const profile = getAccountProfile(id);
+  $('profile-account-label').textContent = `${account.label} · ${account.email ?? 'Email belum diisi'}`;
+  $<HTMLSelectElement>('profile-zoom').value = String(profile.zoom);
+  $<HTMLSelectElement>('profile-start-page').value = profile.startPage;
+  $<HTMLDialogElement>('profile-dialog').showModal();
+}
 function openEditAccount(id: string) {
   const account = accounts.find(a => a.id === id);
   if (!account) return;
@@ -227,7 +248,7 @@ async function selectAccount(id: string) {
   const account = accounts.find(a => a.id === id);
   if (!account) return;
   if (window.ytManager?.openYouTube) {
-    window.ytManager.openYouTube(account.id, account.email ?? '');
+    window.ytManager.openYouTube(account.id, account.email ?? '', getAccountProfile(account.id));
     $('browser-stage').innerHTML = '<div class="desktop-note"><h2>Memuat YouTube…</h2><p>Browser desktop sedang membuka sesi khusus akun ini.</p></div>';
   } else {
     $('browser-stage').innerHTML = '<div class="welcome"><div class="youtube-mark">▶</div><h2>' + escapeHtml(account.label) + '</h2><p>Profil browser akun ini siap digunakan di aplikasi desktop.</p><button class="primary" id="launch">Buka YouTube di tab baru</button><small>Di versi web, YouTube dibuka di tab terpisah. Untuk panel browser terintegrasi, gunakan aplikasi desktop.</small></div>';
@@ -252,6 +273,19 @@ $('logout').addEventListener('click', async () => {
 });
 $('add').addEventListener('click', () => { resetAccountForm(); $<HTMLDialogElement>('account-dialog').showModal(); });
 $('close-account-dialog').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
+$('close-profile-dialog').addEventListener('click', () => $<HTMLDialogElement>('profile-dialog').close());
+$('cancel-profile').addEventListener('click', () => $<HTMLDialogElement>('profile-dialog').close());
+$('profile-dialog').addEventListener('click', event => { if (event.target === $('profile-dialog')) $<HTMLDialogElement>('profile-dialog').close(); });
+$('profile-form').addEventListener('submit', event => {
+  event.preventDefault();
+  if (!editingProfileAccountId) return;
+  const profile: AccountProfile = { zoom: Number($<HTMLSelectElement>('profile-zoom').value), startPage: $<HTMLSelectElement>('profile-start-page').value === 'studio' ? 'studio' : 'home' };
+  saveAccountProfile(editingProfileAccountId, profile);
+  const isActive = activeId === editingProfileAccountId;
+  $<HTMLDialogElement>('profile-dialog').close();
+  toast('Profil akun tersimpan. ' + (isActive ? 'Buka ulang akun untuk menerapkan pengaturan.' : 'Pengaturan diterapkan saat akun dibuka.'));
+  if (isActive) selectAccount(editingProfileAccountId);
+});
 $('cancel-account').addEventListener('click', () => $<HTMLDialogElement>('account-dialog').close());
 $('account-dialog').addEventListener('click', event => {
   if (event.target === $('account-dialog')) $<HTMLDialogElement>('account-dialog').close();
@@ -270,9 +304,10 @@ $('account-form').addEventListener('submit', async e => {
   if (!session) { toast('Silakan login ke YT Manager terlebih dahulu.'); return; }
   const result = editingAccountId
     ? await supabase.from('yt_accounts').update({ label, email }).eq('id', editingAccountId).eq('user_id', session.user.id)
-    : await supabase.from('yt_accounts').insert({ label, email, user_id: session.user.id });
+    : await supabase.from('yt_accounts').insert({ label, email, user_id: session.user.id }).select('id').single();
   if (result.error) { toast((editingAccountId ? 'Gagal memperbarui: ' : 'Gagal menyimpan: ') + result.error.message); return; }
   const wasEditing = Boolean(editingAccountId);
+  if (!wasEditing && result.data?.id) saveAccountProfile(result.data.id, { ...DEFAULT_PROFILE });
   $<HTMLDialogElement>('account-dialog').close();
   resetAccountForm();
   await loadAccounts();
