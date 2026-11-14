@@ -1,10 +1,10 @@
 name: Publish YT Manager v1.0.3 Release
 
 on:
-  push:
+  workflow_run:
+    workflows: ["Build YT Manager Desktop"]
+    types: [completed]
     branches: [main]
-    paths:
-      - ".github/workflows/publish-desktop-release.yml"
 
 permissions:
   actions: read
@@ -12,23 +12,28 @@ permissions:
 
 jobs:
   publish-release:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
     runs-on: ubuntu-latest
     steps:
-      - name: Download verified v1.0.3 installer artifact
+      - name: Download installer from successful desktop build
         uses: actions/download-artifact@v4
         with:
           name: YT-Manager-v1.0.3-Windows-Installer
           path: release-assets
           repository: dollarise/kubangyt
-          run-id: 43605593204
+          run-id: ${{ github.event.workflow_run.id }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Verify installer
+        run: |
+          test -s "release-assets/YT Manager Setup 1.0.3.exe"
+          ls -lh release-assets/
 
       - name: Publish GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v1.0.3
           name: YT Manager v1.0.3 — Simplified Workspace
-          target_commitish: 4abaa2956555fdd72c490c9ca71679a7f2203651
           body: |
             YT Manager v1.0.3 untuk Windows.
 
@@ -41,5 +46,6 @@ jobs:
             **Installer:** Unduh file `YT Manager Setup 1.0.3.exe` pada bagian Assets.
           token: ${{ secrets.RELEASE_TOKEN }}
           files: release-assets/*.exe
+          overwrite_files: true
           draft: false
           prerelease: false
