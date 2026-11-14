@@ -1,0 +1,43 @@
+name: Publish YT Manager v1.0.2 Release
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/publish-desktop-release.yml"
+
+permissions:
+  actions: read
+  contents: write
+
+jobs:
+  publish-release:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download verified v1.0.2 installer artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: YT-Manager-v1.0.2-Low-RAM-Windows-Installer
+          path: release-assets
+          repository: dollarise/kubangyt
+          run-id: 43431994405
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Publish GitHub Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v1.0.2
+          name: YT Manager v1.0.2 — Low RAM
+          target_commitish: 7471502681f269d5e41a3dd7676ee3133667f1d5
+          body: |
+            YT Manager v1.0.2 untuk Windows.
+
+            **Pembaruan:**
+            - Optimasi penggunaan RAM untuk laptop dengan spesifikasi terbatas.
+            - YouTube tetap dibuka di dalam aplikasi.
+            - Sesi browser per akun tetap terpisah dan tersimpan.
+
+            **Installer:** Unduh file `YT Manager Setup 1.0.2.exe` pada bagian Assets.
+          files: release-assets/*.exe
+          draft: false
+          prerelease: false
