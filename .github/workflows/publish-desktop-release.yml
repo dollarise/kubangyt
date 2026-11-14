@@ -39,6 +39,7 @@ jobs:
             - Melanjutkan optimasi penggunaan RAM dari versi sebelumnya.
 
             **Installer:** Unduh file `YT Manager Setup 1.0.3.exe` pada bagian Assets.
+          token: ${{ secrets.RELEASE_TOKEN }}
           files: release-assets/*.exe
           draft: false
           prerelease: false
